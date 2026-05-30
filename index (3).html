@@ -1,0 +1,2070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StageSync — Dance & Theater Portal</title>
+<meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="expires" content="0">
+<style>
+  :root {
+    --bg: #faf9f7;
+    --bg2: #f2f0ec;
+    --bg3: #e8e5df;
+    --card: #ffffff;
+    --border: #dedad3;
+    --border2: #ccc9c0;
+    --text: #1a1917;
+    --text2: #5a5850;
+    --text3: #9a9790;
+    --accent: #2d2d2d;
+    --green: #3a7d44;
+    --green-bg: #eaf3ec;
+    --red: #c0392b;
+    --red-bg: #fdecea;
+    --amber: #b45309;
+    --amber-bg: #fef3cd;
+    --blue: #1a56a0;
+    --blue-bg: #e8f0fb;
+    --purple: #5b3fa6;
+    --purple-bg: #eeebfc;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+  /* ── LOADING OVERLAY ── */
+  #loading-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; gap: 12px; }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-overlay p { font-size: 13px; color: var(--text2); }
+
+  /* ── AUTH ── */
+  #auth-screen { display: none; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .auth-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 40px 36px; width: 100%; max-width: 400px; }
+  .auth-logo { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .auth-logo span { opacity: 0.4; font-weight: 400; }
+  .auth-sub { font-size: 13px; color: var(--text2); margin-bottom: 28px; }
+  .auth-tabs { display: flex; gap: 0; background: var(--bg2); border-radius: var(--radius-sm); padding: 3px; margin-bottom: 22px; }
+  .auth-tab { flex: 1; text-align: center; padding: 7px; border-radius: 5px; font-size: 13px; cursor: pointer; color: var(--text2); transition: all 0.15s; }
+  .auth-tab.active { background: var(--card); color: var(--text); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: var(--card); color: var(--text); outline: none; transition: border 0.15s; font-family: inherit; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; font-family: inherit; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--text); color: #fff; width: 100%; padding: 11px; font-size: 14px; }
+  .btn-primary:hover:not(:disabled) { background: #333; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn-outline { background: transparent; border: 1px solid var(--border2); color: var(--text); }
+  .btn-outline:hover:not(:disabled) { background: var(--bg2); }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-green:hover:not(:disabled) { background: #2e6638; }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-red:hover:not(:disabled) { background: #a93226; }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-blue:hover:not(:disabled) { background: #154a8a; }
+  .auth-err { background: var(--red-bg); color: var(--red); border: 1px solid #f5c6c2; border-radius: var(--radius-sm); padding: 9px 12px; font-size: 12px; margin-bottom: 14px; display: none; }
+  .auth-note { font-size: 11px; color: var(--text3); text-align: center; margin-top: 14px; line-height: 1.5; }
+
+  /* ── APP SHELL ── */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .topbar-logo { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+  .topbar-prod { font-size: 12px; color: var(--text2); background: var(--bg2); padding: 3px 10px; border-radius: 20px; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .user-pill { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 20px; background: var(--bg2); font-size: 12px; cursor: pointer; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .av-purple { background: var(--purple-bg); color: var(--purple); }
+  .av-green { background: var(--green-bg); color: var(--green); }
+  .av-blue { background: var(--blue-bg); color: var(--blue); }
+  .av-amber { background: var(--amber-bg); color: var(--amber); }
+
+  .layout { display: flex; flex: 1; }
+  .sidebar { width: 210px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--border); padding: 16px 10px; position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; }
+  .nav-section { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 8px 4px; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: var(--radius-sm); font-size: 13px; color: var(--text2); cursor: pointer; transition: all 0.12s; margin-bottom: 1px; }
+  .nav-item:hover { background: var(--bg2); color: var(--text); }
+  .nav-item.active { background: var(--text); color: #fff; font-weight: 500; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .main-content { flex: 1; padding: 28px; max-width: 900px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.3px; }
+  .page-sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; }
+  .card h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .card h3 svg { width: 16px; height: 16px; color: var(--text2); flex-shrink: 0; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-blue { background: var(--blue-bg); color: var(--blue); }
+  .badge-purple { background: var(--purple-bg); color: var(--purple); }
+  .badge-gray { background: var(--bg2); color: var(--text2); }
+
+  /* Attendance */
+  .att-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .att-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 11px 12px; transition: all 0.12s; }
+  .att-card.present { background: var(--green-bg); border-color: #a8d5b0; }
+  .att-card.absent { background: var(--red-bg); border-color: #f5c6c2; }
+  .att-card.late { background: var(--amber-bg); border-color: #fcd68a; }
+  .att-card.excused { background: var(--blue-bg); border-color: #b3cef5; }
+  .att-card .pname { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+  .att-card .prole { font-size: 11px; color: var(--text2); margin-bottom: 8px; }
+  .att-card.present .prole, .att-card.present .pname { color: var(--green); }
+  .att-card.absent .prole, .att-card.absent .pname { color: var(--red); }
+  .att-card.late .prole, .att-card.late .pname { color: var(--amber); }
+  .att-card.excused .prole, .att-card.excused .pname { color: var(--blue); }
+  .att-btns { display: flex; gap: 3px; flex-wrap: wrap; }
+  .att-btn { flex: 1; min-width: 40px; font-size: 10px; padding: 3px 4px; border-radius: 4px; cursor: pointer; border: 1px solid var(--border2); background: var(--card); color: var(--text2); transition: all 0.12s; font-family: inherit; text-align: center; }
+  .att-btn.active-p { background: var(--green-bg); border-color: var(--green); color: var(--green); font-weight: 600; }
+  .att-btn.active-a { background: var(--red-bg); border-color: var(--red); color: var(--red); font-weight: 600; }
+  .att-btn.active-l { background: var(--amber-bg); border-color: var(--amber); color: var(--amber); font-weight: 600; }
+  .att-btn.active-e { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); font-weight: 600; }
+
+  /* Requests list */
+  .req-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .req-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .req-body { flex: 1; }
+  .req-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+  .req-name { font-size: 13px; font-weight: 600; }
+  .req-time { font-size: 11px; color: var(--text3); }
+  .req-text { font-size: 13px; color: var(--text2); line-height: 1.5; }
+  .req-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .stat-label { font-size: 11px; color: var(--text2); font-weight: 500; margin-bottom: 6px; }
+  .stat-val { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+  .stat-note { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+  /* User management */
+  .user-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .user-table th { text-align: left; padding: 9px 12px; border-bottom: 2px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+  .user-table td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .user-table tr:last-child td { border-bottom: none; }
+  .user-table tr:hover td { background: var(--bg); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 9px 16px; font-size: 13px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.12s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); font-weight: 600; border-bottom-color: var(--text); }
+
+  /* Toggle */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-info .tl { font-size: 13px; font-weight: 500; }
+  .toggle-info .td { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .toggle { width: 38px; height: 22px; border-radius: 11px; background: var(--bg3); cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0; border: none; }
+  .toggle.on { background: var(--green); }
+  .toggle::after { content: ''; width: 18px; height: 18px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .toggle.on::after { left: 18px; }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--card); border-radius: 14px; padding: 28px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+  /* Toast */
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: #fff; padding: 11px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; display: none; z-index: 9999; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text2); font-size: 13px; }
+  .empty-state svg { width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.3; }
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .inline-link { color: var(--blue); cursor: pointer; text-decoration: underline; font-size: 12px; }
+
+  /* Setup screen */
+  #setup-screen { display: none; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .setup-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 40px 36px; width: 100%; max-width: 480px; }
+  .setup-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .setup-card p { font-size: 13px; color: var(--text2); margin-bottom: 24px; line-height: 1.6; }
+
+  @media (max-width: 700px) {
+    .sidebar { display: none; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .row2, .row3 { grid-template-columns: 1fr; }
+    .main-content { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p>Connecting to StageSync…</p>
+</div>
+
+<!-- First-time setup (no config in DB yet) -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <div style="font-size:22px;font-weight:700;margin-bottom:4px;">🎭 StageSync</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:24px;">Welcome! Let's set up your production portal.</p>
+    <div id="setup-error" class="auth-err"></div>
+    <div class="field"><label>Your name (Director)</label><input type="text" id="setup-name" placeholder="e.g. Jane Smith"></div>
+    <div style="background:var(--blue-bg);border:1px solid #b3cef5;border-radius:var(--radius-sm);padding:9px 12px;font-size:12px;color:var(--blue);margin-bottom:14px;">🔐 Admin account email: <strong>admin@stagesync.com</strong></div>
+    <div class="field"><label>Password</label><input type="password" id="setup-pass" placeholder="Choose a password"></div>
+    <div class="field"><label>Company / group name</label><input type="text" id="setup-company" placeholder="e.g. Riverside Dance Academy"></div>
+    <div class="field"><label>Production name</label><input type="text" id="setup-production" placeholder="e.g. Spring Showcase 2026"></div>
+    <div class="row3">
+      <div class="field"><label>Performer code</label><input type="text" id="setup-joincode" placeholder="SPRING26" style="text-transform:uppercase;"></div>
+      <div class="field"><label>Crew code</label><input type="text" id="setup-crewcode" placeholder="CREW26" style="text-transform:uppercase;"></div>
+      <div class="field"><label>Director code</label><input type="text" id="setup-dircode" placeholder="DIR26" style="text-transform:uppercase;"></div>
+    </div>
+    <button class="btn btn-primary" id="setup-btn" onclick="doSetup()">Create portal</button>
+  </div>
+</div>
+
+<!-- ════════ AUTH SCREEN ════════ -->
+<div id="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-logo">🎭 StageSync <span>Portal</span></div>
+    <div class="auth-sub">Dance &amp; Theater submission portal</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchAuthTab('login')">Sign in</div>
+      <div class="auth-tab" onclick="switchAuthTab('signup')">Join with code</div>
+    </div>
+    <div id="auth-error" class="auth-err"></div>
+
+    <!-- LOGIN -->
+    <div id="tab-login">
+      <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="field"><label>Password</label><input type="password" id="login-pass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Sign in</button>
+      <div class="auth-note">First time? Ask your director for the join code, then use the <strong>Join with code</strong> tab.</div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div id="tab-signup" style="display:none;">
+      <div class="field"><label>Join code (from your director)</label><input type="text" id="signup-code" placeholder="e.g. SPRING26 or CREW26" style="text-transform:uppercase;" oninput="detectCodeType()"></div>
+      <div id="signup-type-hint" style="font-size:11px;margin:-8px 0 10px;padding:6px 10px;border-radius:5px;display:none;"></div>
+      <div class="field"><label>Your full name</label><input type="text" id="signup-name" placeholder="First Last"></div>
+      <div class="field"><label>Email</label><input type="email" id="signup-email" placeholder="your@email.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="signup-pass" placeholder="Choose a password"></div>
+      <button class="btn btn-primary" id="signup-btn" onclick="doSignup()">Create account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ APP ════════ -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">🎭 StageSync</div>
+      <div class="topbar-prod" id="topbar-prod">Loading…</div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-pill" onclick="doLogout()">
+        <div class="avatar av-purple" id="topbar-av">?</div>
+        <span id="topbar-name">User</span>
+        <span style="color:var(--text3); font-size:11px;">· Sign out</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar" id="sidebar"></div>
+    <div class="main-content">
+      <!-- PERFORMER PAGES -->
+      <div class="page" id="page-attendance">
+        <div class="page-title">Attendance</div>
+        <div class="page-sub">Mark your attendance for a scheduled rehearsal.</div>
+        <div class="card" id="att-form-card">
+          <h3>Submit my attendance</h3>
+          <div class="field">
+            <label>Select rehearsal</label>
+            <select id="att-event" onchange="syncAttDate()"><option value="">— Select a rehearsal —</option></select>
+          </div>
+          <div id="att-rehearsal-info" style="display:none;background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text2);"></div>
+          <div class="field"><label>Status</label>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="radio" name="my-att" value="present" checked> Present</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="radio" name="my-att" value="absent"> Absent</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="radio" name="my-att" value="late"> Late</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="radio" name="my-att" value="excused"> Excused</label>
+            </div>
+          </div>
+          <div class="field"><label>Reason / note (optional)</label><textarea id="att-note" placeholder="Any context for your manager…"></textarea></div>
+          <button class="btn btn-primary" style="max-width:220px;" onclick="submitAttendance()">Submit attendance</button>
+        </div>
+        <div class="card">
+          <h3>My recent attendance</h3>
+          <div id="my-att-history"></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-requests">
+        <div class="page-title">Performance Requests</div>
+        <div class="page-sub">Submit requests for songs, roles, choreography, costumes, and more.</div>
+        <div class="card">
+          <h3>New request</h3>
+          <div class="row2">
+            <div class="field"><label>Request type</label><select id="req-type"></select></div>
+            <div class="field"><label>Priority</label>
+              <select id="req-priority"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High — time-sensitive</option></select>
+            </div>
+          </div>
+          <div class="field"><label>Title</label><input type="text" id="req-title" placeholder="Brief title…"></div>
+          <div class="field"><label>Details</label><textarea id="req-details" placeholder="Describe your request…" style="min-height:100px;"></textarea></div>
+          <div class="field"><label>Response needed by (optional)</label><input type="date" id="req-by"></div>
+          <button class="btn btn-primary" style="max-width:200px;" onclick="submitRequest()">Submit request</button>
+        </div>
+        <div class="card">
+          <h3>My previous requests</h3>
+          <div id="my-req-history"></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-availability">
+        <div class="page-title">Rehearsals</div>
+        <div class="page-sub">Upcoming rehearsals posted by your director. Let them know if you can make it!</div>
+        <div id="rehearsal-list-performer"></div>
+      </div>
+
+      <div class="page" id="page-notes">
+        <div class="page-title">Notes & Messages</div>
+        <div class="page-sub">Send a message directly to your managers.</div>
+        <div class="card">
+          <h3>New message</h3>
+          <div class="row2">
+            <div class="field"><label>To</label><select id="note-to"></select></div>
+            <div class="field"><label>Category</label>
+              <select id="note-cat">
+                <option>General note</option><option>Injury / health concern</option>
+                <option>Costume / props</option><option>Music / cues</option><option>Personal concern</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>Subject</label><input type="text" id="note-subject" placeholder="Brief subject…"></div>
+          <div class="field"><label>Message</label><textarea id="note-body" placeholder="Your message…" style="min-height:110px;"></textarea></div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <button class="btn btn-primary" style="max-width:180px;" onclick="submitNote()">Send message</button>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="checkbox" id="note-urgent"> Mark urgent</label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Messages from managers</h3>
+          <div id="my-inbox"></div>
+        </div>
+      </div>
+
+      <!-- CREW PAGE -->
+      <div class="page" id="page-crew-home">
+        <div class="page-title">🔧 Backstage Crew</div>
+        <div class="page-sub" id="crew-sub">Welcome! Here's what's coming up.</div>
+        <div class="card" id="crew-schedule-card">
+          <h3>📅 Upcoming rehearsals &amp; events</h3>
+          <div id="crew-event-list"></div>
+        </div>
+        <div class="card">
+          <h3>💬 Messages from management</h3>
+          <div id="crew-inbox"></div>
+        </div>
+      </div>
+
+      <!-- MANAGER PAGES -->
+      <div class="page" id="page-dashboard">
+        <div class="page-title">Manager Dashboard</div>
+        <div class="page-sub">Overview of all submissions and performer activity.</div>
+        <div class="stats-grid" id="stats-grid"></div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'dash-att')">Attendance</div>
+          <div class="tab" onclick="switchTab(this,'dash-reqs')">Requests</div>
+          <div class="tab" onclick="switchTab(this,'dash-msgs')">Messages</div>
+        </div>
+        <div id="dash-att" class="tab-pane">
+          <div class="card"><h3>Today's attendance</h3><div class="att-grid" id="mgr-att-grid"></div></div>
+        </div>
+        <div id="dash-reqs" class="tab-pane" style="display:none;">
+          <div class="card"><h3>All requests</h3><div id="mgr-req-list"></div></div>
+        </div>
+        <div id="dash-msgs" class="tab-pane" style="display:none;">
+          <div class="card"><h3>All messages</h3><div id="mgr-msg-list"></div></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-roster">
+        <div class="page-title">Roster</div>
+        <div class="page-sub">All registered performers in this production.</div>
+        <div class="card" style="padding:0; overflow:hidden;">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <input type="text" placeholder="Search performers…" id="roster-search" oninput="renderRoster()" style="max-width:220px;padding:7px 11px;font-size:13px;">
+            <button class="btn btn-sm btn-green" onclick="openModal('modal-broadcast')">📢 Broadcast message</button>
+          </div>
+          <table class="user-table" id="roster-table">
+            <thead><tr><th>Name</th><th>Role</th><th>Joined</th><th>Attendance</th><th>Requests</th></tr></thead>
+            <tbody id="roster-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="page" id="page-availability-mgr">
+        <div class="page-title">Rehearsal Manager</div>
+        <div class="page-sub">Post rehearsals and see who can attend.</div>
+        <div class="card">
+          <h3>Post a new rehearsal</h3>
+          <div class="row2">
+            <div class="field"><label>Rehearsal name</label><input type="text" id="reh-name" placeholder="e.g. Thursday Rehearsal"></div>
+            <div class="field"><label>Date</label><input type="date" id="reh-date"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Start time (optional)</label><input type="time" id="reh-time"></div>
+            <div class="field"><label>Location (optional)</label><input type="text" id="reh-location" placeholder="e.g. Studio A"></div>
+          </div>
+          <div class="field"><label>Dances / numbers being rehearsed</label>
+            <div id="reh-dances-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"></div>
+          </div>
+          <div class="field"><label>Notes for cast (optional)</label><textarea id="reh-notes" placeholder="Any info performers need to know…" style="min-height:70px;"></textarea></div>
+          <button class="btn btn-primary" style="max-width:200px;" onclick="postRehearsal()">Post rehearsal</button>
+        </div>
+        <div id="mgr-rehearsal-list"></div>
+      </div>
+
+      <div class="page" id="page-users">
+        <div class="page-title">User Management</div>
+        <div class="page-sub">Add performers and managers, set roles, and manage access.</div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="openModal('modal-adduser')">+ Add performer / manager</button>
+          <button class="btn btn-outline btn-sm" onclick="showJoinCode()">🔑 Show join codes</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table class="user-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Access level</th><th>Actions</th></tr></thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="page" id="page-config">
+        <div class="page-title">Configure</div>
+        <div class="page-sub">Customize your portal — productions, request types, and settings.</div>
+        <div class="card">
+          <h3>Production details</h3>
+          <div class="row2">
+            <div class="field"><label>Company / group name</label><input type="text" id="cfg-company" placeholder="e.g. Riverside Dance Academy"></div>
+            <div class="field"><label>Active production</label><input type="text" id="cfg-production" placeholder="e.g. Spring Showcase 2026"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Performer join code</label><div style="display:flex;gap:6px;align-items:center;"><input type="text" id="cfg-joincode" style="text-transform:uppercase;"><button class="btn btn-sm btn-outline" onclick="copyCode('cfg-joincode')">Copy</button></div></div>
+            <div class="field"><label>Crew join code</label><div style="display:flex;gap:6px;align-items:center;"><input type="text" id="cfg-crewcode" style="text-transform:uppercase;"><button class="btn btn-sm btn-outline" onclick="copyCode('cfg-crewcode')">Copy</button></div></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Director join code</label><div style="display:flex;gap:6px;align-items:center;"><input type="text" id="cfg-dircode" style="text-transform:uppercase;"><button class="btn btn-sm btn-outline" onclick="copyCode('cfg-dircode')">Copy</button></div></div>
+            <div class="field"><label>Notification email</label><input type="email" id="cfg-notify-email" placeholder="director@email.com"></div>
+          </div>
+          <button class="btn btn-primary" style="max-width:180px;" onclick="saveConfig()">Save details</button>
+        </div>
+        <div class="card">
+          <h3>💃 Dances &amp; numbers</h3>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:14px;">These are the dances/numbers you can assign to a rehearsal.</p>
+          <div id="dances-list" style="margin-bottom:14px;"></div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="new-dance-name" placeholder="e.g. Opening Number" style="flex:1;padding:7px 11px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <button class="btn btn-outline btn-sm" onclick="addDance()">+ Add dance</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>👥 Dance groups</h3>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:14px;">Define the groups/companies performers can be assigned to.</p>
+          <div id="dance-groups-list" style="margin-bottom:14px;"></div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="new-group-name" placeholder="e.g. Junior Ensemble" style="flex:1;padding:7px 11px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <button class="btn btn-outline btn-sm" onclick="addDanceGroup()">+ Add group</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Active modules</h3>
+          <div id="module-toggles"></div>
+        </div>
+        <div class="card">
+          <h3>Custom request types</h3>
+          <div id="req-types-list" style="margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="new-req-type" placeholder="New request type…" style="flex:1;padding:7px 11px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <button class="btn btn-outline btn-sm" onclick="addReqType()">Add</button>
+          </div>
+        </div>
+        <div class="card" style="background:var(--red-bg);border-color:#f5c6c2;">
+          <h3 style="color:var(--red);">Danger zone</h3>
+          <p style="font-size:13px;color:var(--red);margin-bottom:12px;">These actions are permanent and cannot be undone.</p>
+          <button class="btn btn-sm btn-red" onclick="if(confirm('Clear ALL submission data?'))clearAllData()">Clear all submission data</button>
+        </div>
+      </div>
+
+      <!-- RESOURCES PAGE -->
+      <div class="page" id="page-resources">
+        <div class="page-title">Resources</div>
+        <div class="page-sub">Files and links shared by your directors.</div>
+        <div class="card" id="resources-upload-card" style="display:none;">
+          <h3>📎 Add a resource</h3>
+          <div class="row2">
+            <div class="field"><label>Title</label><input type="text" id="res-title" placeholder="e.g. Rehearsal Schedule PDF"></div>
+            <div class="field"><label>Category</label>
+              <select id="res-cat">
+                <option>General</option><option>Schedule</option><option>Music</option><option>Choreography</option><option>Costume</option><option>Scripts & Lyrics</option><option>Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>Link or URL</label><input type="url" id="res-url" placeholder="https://…"></div>
+          <div class="field"><label>Description (optional)</label><textarea id="res-desc" placeholder="Brief description…" style="min-height:60px;"></textarea></div>
+          <button class="btn btn-primary" style="max-width:180px;" onclick="addResource()">Add resource</button>
+        </div>
+        <div id="resources-list"></div>
+      </div>
+
+      <!-- PROFILES PAGE -->
+      <div class="page" id="page-profiles">
+        <div class="page-title">Profiles</div>
+        <div class="page-sub">View and manage performer profiles and dance group assignments.</div>
+        <div style="padding:0 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input type="text" placeholder="Search performers…" id="profiles-search" oninput="renderProfiles()" style="max-width:220px;padding:7px 11px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+          <select id="profiles-filter-group" onchange="renderProfiles()" style="padding:7px 11px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <option value="">All groups</option>
+          </select>
+        </div>
+        <div id="profiles-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ MODALS ════════ -->
+<div class="modal-overlay" id="modal-adduser">
+  <div class="modal">
+    <h2>Add user</h2>
+    <div class="field"><label>Full name</label><input type="text" id="add-name" placeholder="First Last"></div>
+    <div class="field"><label>Email</label><input type="email" id="add-email" placeholder="email@example.com"></div>
+    <div class="field"><label>Temporary password</label><input type="text" id="add-pass" placeholder="They can change it later"></div>
+    <div class="field"><label>Performance role</label>
+      <select id="add-perf-role"><option>Lead</option><option>Ensemble</option><option>Understudy</option><option>Crew</option><option>Other</option></select>
+    </div>
+    <div class="field"><label>Access level</label>
+      <select id="add-access">
+        <option value="performer">Performer (submit only)</option>
+        <option value="manager">Manager (view all submissions)</option>
+        <option value="admin">Admin (full access)</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-adduser')">Cancel</button>
+      <button class="btn btn-sm btn-green" onclick="addUser()">Add user</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-broadcast">
+  <div class="modal">
+    <h2>Broadcast message</h2>
+    <div class="field"><label>Send to</label>
+      <select id="bc-to"><option value="all">All performers</option><option value="leads">Leads only</option><option value="ensemble">Ensemble only</option></select>
+    </div>
+    <div class="field"><label>Subject</label><input type="text" id="bc-subject" placeholder="Subject…"></div>
+    <div class="field"><label>Message</label><textarea id="bc-body" placeholder="Your message…" style="min-height:100px;"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-broadcast')">Cancel</button>
+      <button class="btn btn-sm btn-blue" onclick="sendBroadcast()">Send to all</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-profile">
+  <div class="modal">
+    <h2 id="profile-modal-title">Performer Profile</h2>
+    <div id="profile-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-profile')">Close</button>
+      <button class="btn btn-sm btn-blue" onclick="saveProfile()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-respond">
+  <div class="modal">
+    <h2>Respond to request</h2>
+    <div id="respond-req-detail" style="background:var(--bg2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;"></div>
+    <div class="field"><label>Status</label>
+      <select id="respond-status">
+        <option value="reviewing">Reviewing</option>
+        <option value="approved">Approved</option>
+        <option value="declined">Declined</option>
+        <option value="pending">Pending</option>
+      </select>
+    </div>
+    <div class="field"><label>Response note</label><textarea id="respond-note" placeholder="Your response…" style="min-height:80px;"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-respond')">Cancel</button>
+      <button class="btn btn-sm btn-blue" onclick="saveResponse()">Save response</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  SUPABASE CONFIG
+// ══════════════════════════════════════════════
+const SUPABASE_URL = 'https://zleuuvydqvvcsvevoias.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZXV1dnlkcXZ2Y3N2ZXZvaWFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NDY2MjEsImV4cCI6MjA5NTUyMjYyMX0.5xFAqpFbrBPafA2VCHboxsETyBqk3gdC7JzSDCucwpM';
+
+const SB = {
+  headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY },
+
+  async get(table, filters = '') {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filters}`, { headers: this.headers });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async getOne(table, filters = '') {
+    const rows = await this.get(table, filters + '&limit=1');
+    return rows[0] || null;
+  },
+
+  async insert(table, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: { ...this.headers, 'Prefer': 'return=representation' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const r = await res.json();
+    return Array.isArray(r) ? r[0] : r;
+  },
+
+  async update(table, data, filters) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filters}`, {
+      method: 'PATCH',
+      headers: { ...this.headers, 'Prefer': 'return=representation' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  async delete(table, filters) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filters}`, {
+      method: 'DELETE',
+      headers: this.headers
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return true;
+  },
+
+  async upsert(table, data, onConflict) {
+    const url = onConflict
+      ? `${SUPABASE_URL}/rest/v1/${table}?on_conflict=${onConflict}`
+      : `${SUPABASE_URL}/rest/v1/${table}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { ...this.headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const r = await res.json();
+    return Array.isArray(r) ? r[0] : r;
+  }
+};
+
+// ══════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════
+function today() { return new Date().toISOString().split('T')[0]; }
+function ts() { return new Date().toLocaleString(); }
+function uid() { return Math.random().toString(36).slice(2, 9); }
+function mkInitials(name) { return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); }
+function avatarColor(i) { return ['av-purple', 'av-green', 'av-blue', 'av-amber'][i % 4]; }
+
+function fmtTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':');
+  const hr = parseInt(h);
+  return (hr % 12 || 12) + ':' + (m || '00') + (hr < 12 ? 'am' : 'pm');
+}
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+// password hashing — simple base64 for compatibility (passwords stored hashed)
+function hashPass(pass) { return btoa(pass + ':ss_salt_2026'); }
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let currentUser = null;
+let appConfig = null;
+let allUsers = [];
+let allRehearsals = [];
+let allAttendance = [];
+let allRequests = [];
+let allMessages = [];
+let allRsvps = [];
+let allResources = [];
+let respondingReqId = null;
+let editingProfileId = null;
+
+// ══════════════════════════════════════════════
+//  INIT — check if DB is set up
+// ══════════════════════════════════════════════
+async function init() {
+  try {
+    // Try to fetch config row
+    const cfg = await SB.getOne('ss_config', 'select=*');
+    if (!cfg) {
+      // No config — show setup screen
+      hideLoading();
+      document.getElementById('setup-screen').style.display = 'flex';
+    } else {
+      appConfig = cfg;
+      hideLoading();
+      document.getElementById('auth-screen').style.display = 'flex';
+    }
+  } catch (e) {
+    // Table might not exist — show setup with DB creation instructions
+    hideLoading();
+    showDbError(e.message);
+  }
+}
+
+function hideLoading() {
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+
+function showDbError(msg) {
+  document.getElementById('loading-overlay').innerHTML = `
+    <div style="max-width:500px;padding:30px;text-align:center;">
+      <div style="font-size:22px;margin-bottom:12px;">⚠️ Database not set up</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
+        Your Supabase project needs tables created first. Go to your 
+        <a href="https://supabase.com/dashboard/project/zleuuvydqvvcsvevoias/sql/new" target="_blank" style="color:var(--blue);">Supabase SQL Editor</a> 
+        and run the SQL setup script below, then refresh this page.
+      </p>
+      <textarea readonly style="width:100%;height:260px;font-size:11px;font-family:monospace;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);resize:none;">${SQL_SETUP}</textarea>
+      <div style="margin-top:12px;font-size:11px;color:var(--text3);">Error: ${msg}</div>
+      <button class="btn btn-primary" style="margin-top:14px;max-width:200px;" onclick="location.reload()">Refresh after running SQL</button>
+    </div>`;
+  document.getElementById('loading-overlay').style.display = 'flex';
+}
+
+const SQL_SETUP = `-- StageSync Tables
+create table if not exists ss_config (
+  id text primary key default 'main',
+  company text, production text,
+  join_code text, crew_join_code text, dir_join_code text,
+  notify_email text,
+  dances jsonb default '[]',
+  dance_groups jsonb default '[]',
+  req_types jsonb default '["Song / number selection","Role / casting preference","Costume adjustment","Choreography change","Understudying a role","Other"]',
+  modules jsonb default '{"attendance":true,"requests":true,"availability":true,"notes":true}'
+);
+create table if not exists ss_users (
+  id text primary key,
+  name text, email text unique, pass text,
+  access text, perf_role text,
+  dance_groups jsonb default '[]',
+  initials text, color text, joined text
+);
+create table if not exists ss_rehearsals (
+  id text primary key,
+  name text, date text, time text, location text,
+  dances jsonb default '[]', notes text,
+  posted_by text, ts text
+);
+create table if not exists ss_attendance (
+  id text primary key,
+  user_id text, user_name text, user_role text,
+  rehearsal_id text, event text, date text,
+  status text, note text, ts text
+);
+create table if not exists ss_requests (
+  id text primary key,
+  user_id text, user_name text, user_role text,
+  type text, priority text, title text, details text,
+  by_date text, status text default 'pending',
+  response text default '', ts text
+);
+create table if not exists ss_messages (
+  id text primary key,
+  from_id text, from_name text,
+  to_user_id text, to_name text,
+  category text, subject text, body text,
+  urgent boolean default false, ts text
+);
+create table if not exists ss_rsvps (
+  id text primary key,
+  rehearsal_id text, user_id text, user_name text,
+  status text, note text, ts text,
+  unique(rehearsal_id, user_id)
+);
+create table if not exists ss_resources (
+  id text primary key,
+  title text, url text, cat text,
+  description text, added_by text, ts text
+);
+
+-- Disable RLS so the anon key can read/write everything
+alter table ss_config disable row level security;
+alter table ss_users disable row level security;
+alter table ss_rehearsals disable row level security;
+alter table ss_attendance disable row level security;
+alter table ss_requests disable row level security;
+alter table ss_messages disable row level security;
+alter table ss_rsvps disable row level security;
+alter table ss_resources disable row level security;`;
+
+// ══════════════════════════════════════════════
+//  SETUP (first run)
+// ══════════════════════════════════════════════
+async function doSetup() {
+  const name = document.getElementById('setup-name').value.trim();
+  const email = 'admin@stagesync.com';
+  const pass = document.getElementById('setup-pass').value;
+  const company = document.getElementById('setup-company').value.trim();
+  const production = document.getElementById('setup-production').value.trim();
+  const joinCode = (document.getElementById('setup-joincode').value.trim() || 'SPRING26').toUpperCase();
+  const crewCode = (document.getElementById('setup-crewcode').value.trim() || 'CREW26').toUpperCase();
+  const dirCode = (document.getElementById('setup-dircode').value.trim() || 'DIR26').toUpperCase();
+  if (!name || !pass || !company || !production) {
+    document.getElementById('setup-error').textContent = 'Please fill in all fields.';
+    document.getElementById('setup-error').style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('setup-btn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    // Insert config
+    await SB.insert('ss_config', {
+      id: 'main', company, production,
+      join_code: joinCode, crew_join_code: crewCode, dir_join_code: dirCode,
+      notify_email: '',
+      dances: ['Full Run-Through', 'Opening Number'],
+      dance_groups: ['Junior Ensemble', 'Senior Ensemble', 'Leads', 'Hip Hop Crew'],
+      req_types: ['Song / number selection', 'Role / casting preference', 'Costume adjustment', 'Choreography change', 'Understudying a role', 'Other'],
+      modules: { attendance: true, requests: true, availability: true, notes: true }
+    });
+    // Insert admin user
+    const adminUser = {
+      id: uid(), name, email, pass: hashPass(pass),
+      access: 'admin', perf_role: 'Director',
+      dance_groups: [], initials: mkInitials(name),
+      color: 'av-purple', joined: today()
+    };
+    await SB.insert('ss_users', adminUser);
+    appConfig = await SB.getOne('ss_config', 'select=*');
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('login-email').value = 'admin@stagesync.com';
+    toast('Portal created! Sign in with admin@stagesync.com and your password.');
+  } catch (e) {
+    document.getElementById('setup-error').textContent = 'Error: ' + e.message;
+    document.getElementById('setup-error').style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Create portal';
+  }
+}
+
+// ══════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════
+function switchAuthTab(t) {
+  document.querySelectorAll('.auth-tab').forEach((el, i) => el.classList.toggle('active', (i === 0 && t === 'login') || (i === 1 && t === 'signup')));
+  document.getElementById('tab-login').style.display = t === 'login' ? '' : 'none';
+  document.getElementById('tab-signup').style.display = t === 'signup' ? '' : 'none';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+function authError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const pass = document.getElementById('login-pass').value;
+  if (!email || !pass) { authError('Please enter your email and password.'); return; }
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    const user = await SB.getOne('ss_users', `email=eq.${encodeURIComponent(email)}&select=*`);
+    if (!user || user.pass !== hashPass(pass)) { authError('Incorrect email or password.'); btn.disabled = false; btn.textContent = 'Sign in'; return; }
+    currentUser = normalizeUser(user);
+    document.getElementById('auth-error').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'none';
+    await loadAppData();
+    launchApp();
+  } catch (e) {
+    authError('Error: ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = 'Sign in';
+}
+
+async function detectCodeType() {
+  const code = document.getElementById('signup-code').value.trim().toUpperCase();
+  if (!appConfig) return;
+  const hint = document.getElementById('signup-type-hint');
+  if (code === appConfig.join_code) {
+    hint.style.display = 'block'; hint.style.background = 'var(--green-bg)'; hint.style.color = 'var(--green)';
+    hint.textContent = "✓ Performer code — you'll get access to attendance, requests & availability";
+  } else if (code === appConfig.dir_join_code) {
+    hint.style.display = 'block'; hint.style.background = 'var(--purple-bg)'; hint.style.color = 'var(--purple)';
+    hint.textContent = "🎭 Director code — you'll get full manager access";
+  } else if (code === appConfig.crew_join_code) {
+    hint.style.display = 'block'; hint.style.background = 'var(--blue-bg)'; hint.style.color = 'var(--blue)';
+    hint.textContent = "🔧 Crew code — you'll get a backstage crew view with messaging only";
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+async function doSignup() {
+  const code = document.getElementById('signup-code').value.trim().toUpperCase();
+  const name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim().toLowerCase();
+  const pass = document.getElementById('signup-pass').value;
+  if (!name || !email || !pass) { authError('Please fill in all fields.'); return; }
+  const isCrew = code === appConfig.crew_join_code;
+  const isPerformer = code === appConfig.join_code;
+  const isDirector = code === appConfig.dir_join_code;
+  if (!isCrew && !isPerformer && !isDirector) { authError('Invalid join code. Ask your director for the correct code.'); return; }
+  const btn = document.getElementById('signup-btn');
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  try {
+    const existing = await SB.getOne('ss_users', `email=eq.${encodeURIComponent(email)}&select=id`);
+    if (existing) { authError('An account with that email already exists.'); btn.disabled = false; btn.textContent = 'Create account'; return; }
+    const allU = await SB.get('ss_users', 'select=id');
+    const idx = allU.length;
+    const access = isDirector ? 'manager' : isCrew ? 'crew' : 'performer';
+    const perf_role = isDirector ? 'Director' : isCrew ? 'Crew' : 'Performer';
+    const newUser = {
+      id: uid(), name, email, pass: hashPass(pass),
+      access, perf_role, dance_groups: [],
+      initials: mkInitials(name), color: avatarColor(idx), joined: today()
+    };
+    await SB.insert('ss_users', newUser);
+    currentUser = normalizeUser(newUser);
+    document.getElementById('auth-error').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'none';
+    await loadAppData();
+    launchApp();
+  } catch (e) {
+    authError('Error: ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = 'Create account';
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+function normalizeUser(u) {
+  return {
+    id: u.id, name: u.name, email: u.email, pass: u.pass,
+    access: u.access,
+    perfRole: u.perf_role || u.perfRole || '',
+    danceGroups: u.dance_groups || u.danceGroups || [],
+    initials: u.initials || mkInitials(u.name),
+    color: u.color || 'av-purple',
+    joined: u.joined || today()
+  };
+}
+
+// ══════════════════════════════════════════════
+//  LOAD ALL APP DATA
+// ══════════════════════════════════════════════
+async function loadAppData() {
+  const [cfg, users, rehearsals, attendance, requests, messages, rsvps, resources] = await Promise.all([
+    SB.getOne('ss_config', 'select=*'),
+    SB.get('ss_users', 'select=*&order=joined.asc'),
+    SB.get('ss_rehearsals', 'select=*&order=date.asc'),
+    SB.get('ss_attendance', 'select=*&order=ts.desc'),
+    SB.get('ss_requests', 'select=*&order=ts.desc'),
+    SB.get('ss_messages', 'select=*&order=ts.desc'),
+    SB.get('ss_rsvps', 'select=*'),
+    SB.get('ss_resources', 'select=*&order=ts.asc')
+  ]);
+  appConfig = cfg;
+  allUsers = users.map(normalizeUser);
+  allRehearsals = rehearsals;
+  allAttendance = attendance;
+  allRequests = requests;
+  allMessages = messages;
+  allRsvps = rsvps;
+  allResources = resources;
+  // Refresh currentUser from DB
+  if (currentUser) {
+    const fresh = allUsers.find(u => u.id === currentUser.id);
+    if (fresh) currentUser = fresh;
+  }
+}
+
+// ══════════════════════════════════════════════
+//  APP LAUNCH
+// ══════════════════════════════════════════════
+function launchApp() {
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('topbar-prod').textContent = appConfig.production;
+  document.getElementById('topbar-name').textContent = currentUser.name;
+  const av = document.getElementById('topbar-av');
+  av.textContent = currentUser.initials;
+  av.className = 'avatar ' + currentUser.color;
+  buildSidebar();
+  if (currentUser.access === 'crew') showPage('crew-home');
+  else if (currentUser.access === 'performer') showPage('attendance');
+  else showPage('dashboard');
+}
+
+// ══════════════════════════════════════════════
+//  SIDEBAR
+// ══════════════════════════════════════════════
+const icons = {
+  attendance: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg>',
+  requests: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>',
+  availability: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  notes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
+  roster: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  'availability-mgr': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>',
+  config: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  resources: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+  profiles: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+};
+
+function buildSidebar() {
+  const sb = document.getElementById('sidebar');
+  const isCrew = currentUser.access === 'crew';
+  const isPerformer = currentUser.access === 'performer';
+  let html = '';
+  if (isCrew) {
+    html += '<div class="nav-section">Backstage Crew</div>';
+    html += `<div class="nav-item" onclick="showPage('crew-home')">${icons.dashboard} Crew Home</div>`;
+    html += `<div class="nav-item" onclick="showPage('notes')">${icons.notes} Messages</div>`;
+    html += `<div class="nav-item" onclick="showPage('resources')">${icons.resources} Resources</div>`;
+    sb.innerHTML = html; return;
+  }
+  if (!isPerformer) {
+    html += `<div class="nav-section">Manager</div>
+    <div class="nav-item" onclick="showPage('dashboard')">${icons.dashboard} Dashboard</div>
+    <div class="nav-item" onclick="showPage('roster')">${icons.roster} Roster</div>
+    <div class="nav-item" onclick="showPage('profiles')">${icons.profiles} Profiles</div>
+    <div class="nav-item" onclick="showPage('availability-mgr')">${icons['availability-mgr']} Availability</div>
+    <div class="nav-item" onclick="showPage('resources')">${icons.resources} Resources</div>`;
+    if (currentUser.access === 'admin') {
+      html += `<div class="nav-item" onclick="showPage('users')">${icons.users} Users</div>
+      <div class="nav-item" onclick="showPage('config')">${icons.config} Configure</div>`;
+    }
+    html += '<div class="nav-section" style="margin-top:6px;">Performer view</div>';
+  } else {
+    html += '<div class="nav-section">Performer</div>';
+  }
+  const mods = appConfig.modules || {};
+  if (mods.attendance) html += `<div class="nav-item" onclick="showPage('attendance')">${icons.attendance} Attendance</div>`;
+  if (mods.requests) html += `<div class="nav-item" onclick="showPage('requests')">${icons.requests} Requests</div>`;
+  if (mods.availability) html += `<div class="nav-item" onclick="showPage('availability')">${icons.availability} Rehearsals</div>`;
+  if (mods.notes) html += `<div class="nav-item" onclick="showPage('notes')">${icons.notes} Notes & Messages</div>`;
+  html += `<div class="nav-item" onclick="showPage('resources')">${icons.resources} Resources</div>`;
+  sb.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
+//  PAGE ROUTING
+// ══════════════════════════════════════════════
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + id + "'")) n.classList.add('active');
+  });
+  // Re-fetch fresh data then render
+  loadAppData().then(() => {
+    if (id === 'attendance') renderAttPage();
+    if (id === 'requests') renderReqPage();
+    if (id === 'availability') renderAvailPage();
+    if (id === 'notes') renderNotesPage();
+    if (id === 'dashboard') renderDashboard();
+    if (id === 'roster') renderRoster();
+    if (id === 'availability-mgr') { renderMgrAvail(); renderMgrRehearsalList(); }
+    if (id === 'users') renderUsers();
+    if (id === 'config') renderConfig();
+    if (id === 'crew-home') renderCrewHome();
+    if (id === 'resources') renderResources();
+    if (id === 'profiles') renderProfiles();
+  });
+}
+
+function switchTab(el, id) {
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+  const target = document.getElementById(id);
+  if (target) target.style.display = 'block';
+}
+
+// ══════════════════════════════════════════════
+//  ATTENDANCE PAGE (performer)
+// ══════════════════════════════════════════════
+function renderAttPage() {
+  const upcoming = allRehearsals.filter(r => r.date >= today()).sort((a, b) => a.date.localeCompare(b.date));
+  const sel = document.getElementById('att-event');
+  if (sel) {
+    if (!upcoming.length) {
+      sel.innerHTML = '<option value="">No rehearsals scheduled yet</option>';
+    } else {
+      sel.innerHTML = '<option value="">— Select a rehearsal —</option>' + upcoming.map(r =>
+        `<option value="${r.id}">${r.name} — ${formatDate(r.date)}${r.time ? ' at ' + fmtTime(r.time) : ''}</option>`).join('');
+    }
+    syncAttDate();
+  }
+  const hist = allAttendance.filter(a => a.user_id === currentUser.id).slice(0, 5);
+  const el = document.getElementById('my-att-history');
+  if (!hist.length) { el.innerHTML = '<div class="empty-state">No attendance submitted yet.</div>'; return; }
+  el.innerHTML = hist.map(a => `
+    <div class="req-item"><div class="req-body">
+      <div class="req-top"><span class="req-name">${a.event}</span><span class="badge badge-${attBadge(a.status)}">${a.status}</span><span class="req-time">${a.date}</span></div>
+      ${a.note ? `<div class="req-text">${a.note}</div>` : ''}
+    </div></div>`).join('');
+}
+
+function attBadge(s) { return { present: 'green', absent: 'red', late: 'amber', excused: 'blue' }[s] || 'gray'; }
+
+function syncAttDate() {
+  const sel = document.getElementById('att-event');
+  if (!sel) return;
+  const rid = sel.value;
+  const info = document.getElementById('att-rehearsal-info');
+  if (!rid) { if (info) info.style.display = 'none'; return; }
+  const r = allRehearsals.find(x => x.id === rid);
+  if (r && info) {
+    const parts = ['📅 ' + formatDate(r.date)];
+    if (r.time) parts.push('⏰ ' + fmtTime(r.time));
+    if (r.location) parts.push('📍 ' + r.location);
+    if (r.dances && r.dances.length) parts.push('💃 ' + r.dances.join(', '));
+    if (r.notes) parts.push('📋 ' + r.notes);
+    info.innerHTML = parts.join(' &nbsp;&bull;&nbsp; ');
+    info.style.display = 'block';
+  }
+}
+
+async function submitAttendance() {
+  const sel = document.getElementById('att-event');
+  const rid = sel ? sel.value : '';
+  if (!rid) { toast('Please select a rehearsal first.'); return; }
+  const reh = allRehearsals.find(r => r.id === rid);
+  const event = reh ? reh.name : 'Unknown';
+  const eventDate = reh ? reh.date : today();
+  const status = document.querySelector('input[name="my-att"]:checked').value;
+  const note = document.getElementById('att-note').value.trim();
+  try {
+    await SB.insert('ss_attendance', {
+      id: uid(), user_id: currentUser.id, user_name: currentUser.name,
+      user_role: currentUser.perfRole, rehearsal_id: rid,
+      event, date: eventDate, status, note, ts: ts()
+    });
+    document.getElementById('att-note').value = '';
+    toast('Attendance submitted!');
+    await loadAppData();
+    renderAttPage();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  REQUESTS PAGE (performer)
+// ══════════════════════════════════════════════
+function renderReqPage() {
+  const sel = document.getElementById('req-type');
+  if (sel) sel.innerHTML = (appConfig.req_types || []).map(t => `<option>${t}</option>`).join('');
+  const hist = allRequests.filter(r => r.user_id === currentUser.id).slice(0, 10);
+  const el = document.getElementById('my-req-history');
+  if (!hist.length) { el.innerHTML = '<div class="empty-state">No requests submitted yet.</div>'; return; }
+  el.innerHTML = hist.map(r => `
+    <div class="req-item"><div class="req-body">
+      <div class="req-top"><span class="req-name">${r.title}</span><span class="badge badge-${reqStatusBadge(r.status)}">${r.status}</span><span class="badge badge-blue">${r.type}</span><span class="badge badge-${r.priority === 'high' ? 'red' : r.priority === 'medium' ? 'amber' : 'gray'}">${r.priority}</span></div>
+      <div class="req-text">${r.details}</div>
+      ${r.response ? `<div style="margin-top:8px;padding:8px 10px;background:var(--bg2);border-radius:var(--radius-sm);font-size:12px;color:var(--text2);"><strong>Manager response:</strong> ${r.response}</div>` : ''}
+      <div class="req-time" style="margin-top:4px;">${r.ts}</div>
+    </div></div>`).join('');
+}
+
+function reqStatusBadge(s) { return { pending: 'amber', approved: 'green', declined: 'red', reviewing: 'blue' }[s] || 'gray'; }
+
+async function submitRequest() {
+  const type = document.getElementById('req-type').value;
+  const priority = document.getElementById('req-priority').value;
+  const title = document.getElementById('req-title').value.trim();
+  const details = document.getElementById('req-details').value.trim();
+  const by_date = document.getElementById('req-by').value;
+  if (!title || !details) { toast('Please fill in title and details.'); return; }
+  try {
+    await SB.insert('ss_requests', {
+      id: uid(), user_id: currentUser.id, user_name: currentUser.name,
+      user_role: currentUser.perfRole, type, priority, title, details,
+      by_date, status: 'pending', response: '', ts: ts()
+    });
+    document.getElementById('req-title').value = '';
+    document.getElementById('req-details').value = '';
+    document.getElementById('req-by').value = '';
+    toast('Request submitted!');
+    await loadAppData();
+    renderReqPage();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  REHEARSALS PAGE (performer)
+// ══════════════════════════════════════════════
+function renderAvailPage() {
+  const el = document.getElementById('rehearsal-list-performer');
+  if (!el) return;
+  const upcoming = allRehearsals.filter(r => r.date >= today()).sort((a, b) => a.date.localeCompare(b.date));
+  const past = allRehearsals.filter(r => r.date < today()).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3);
+  if (!upcoming.length && !past.length) {
+    el.innerHTML = '<div class="card"><div class="empty-state">No rehearsals posted yet. Check back soon!</div></div>'; return;
+  }
+  const renderRehCard = (r, isPast) => {
+    const myRsvp = allRsvps.find(v => v.rehearsal_id === r.id && v.user_id === currentUser.id);
+    const status = myRsvp ? myRsvp.status : null;
+    return `<div class="card" style="${isPast ? 'opacity:0.7;' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${r.name}</div>
+          <div style="font-size:12px;color:var(--text2);display:flex;flex-wrap:wrap;gap:10px;">
+            <span>📅 ${formatDate(r.date)}</span>
+            ${r.time ? '<span>⏰ ' + fmtTime(r.time) + '</span>' : ''}
+            ${r.location ? '<span>📍 ' + r.location + '</span>' : ''}
+          </div>
+          ${r.dances && r.dances.length ? `<div style="margin-top:6px;">${r.dances.map(d => '<span class="badge badge-purple" style="margin-right:4px;">' + d + '</span>').join('')}</div>` : ''}
+          ${r.notes ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">📋 ${r.notes}</div>` : ''}
+        </div>
+        ${!isPast ? `<div style="text-align:right;">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Your RSVP</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
+            <button onclick="submitRsvp('${r.id}','yes')" class="btn btn-sm ${status === 'yes' ? 'btn-green' : 'btn-outline'}">Yes</button>
+            <button onclick="submitRsvp('${r.id}','maybe')" class="btn btn-sm btn-outline" style="${status === 'maybe' ? 'background:var(--amber-bg);border-color:var(--amber);color:var(--amber);font-weight:600;' : ''}">Maybe</button>
+            <button onclick="submitRsvp('${r.id}','no')" class="btn btn-sm ${status === 'no' ? 'btn-red' : 'btn-outline'}">Can't go</button>
+          </div>
+        </div>` : '<div><span class="badge badge-gray">Past</span></div>'}
+      </div>
+    </div>`;
+  };
+  let out = '';
+  if (upcoming.length) {
+    out += '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">Upcoming</div>';
+    out += upcoming.map(r => renderRehCard(r, false)).join('');
+  }
+  if (past.length) {
+    out += '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 10px;">Past rehearsals</div>';
+    out += past.map(r => renderRehCard(r, true)).join('');
+  }
+  el.innerHTML = out;
+}
+
+async function submitRsvp(rehearsalId, status) {
+  try {
+    const existing = allRsvps.find(v => v.rehearsal_id === rehearsalId && v.user_id === currentUser.id);
+    const rec = {
+      id: existing ? existing.id : uid(),
+      rehearsal_id: rehearsalId, user_id: currentUser.id,
+      user_name: currentUser.name, status, note: '', ts: ts()
+    };
+    await SB.upsert('ss_rsvps', rec, 'rehearsal_id,user_id');
+    toast(status === 'yes' ? 'Marked as attending!' : status === 'no' ? 'Marked as not attending.' : 'Marked as maybe.');
+    await loadAppData();
+    renderAvailPage();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  NOTES PAGE
+// ══════════════════════════════════════════════
+function renderNotesPage() {
+  const mgrs = allUsers.filter(u => u.access !== 'performer');
+  const sel = document.getElementById('note-to');
+  if (sel) sel.innerHTML = ['<option value="all">All managers</option>'].concat(mgrs.map(m =>
+    `<option value="${m.id}">${m.name} (${m.perfRole || m.access})</option>`)).join('');
+  const msgs = allMessages.filter(m => m.from_id !== currentUser.id && (m.to_user_id === currentUser.id || m.to_user_id === 'all')).slice(0, 10);
+  const el = document.getElementById('my-inbox');
+  if (!el) return;
+  if (!msgs.length) { el.innerHTML = '<div class="empty-state">No messages yet.</div>'; return; }
+  el.innerHTML = msgs.map(m => `
+    <div class="req-item">
+      <div class="avatar ${avatarColor(0)}" style="width:34px;height:34px;font-size:11px;flex-shrink:0;">${mkInitials(m.from_name)}</div>
+      <div class="req-body">
+        <div class="req-top"><span class="req-name">${m.from_name}</span>${m.urgent ? '<span class="badge badge-red">Urgent</span>' : ''}<span class="req-time">${m.ts}</span></div>
+        <div class="req-text"><strong>${m.subject}</strong> — ${m.body}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function submitNote() {
+  const toId = document.getElementById('note-to').value;
+  const toName = document.getElementById('note-to').selectedOptions[0].text;
+  const cat = document.getElementById('note-cat').value;
+  const subject = document.getElementById('note-subject').value.trim();
+  const body = document.getElementById('note-body').value.trim();
+  const urgent = document.getElementById('note-urgent').checked;
+  if (!subject || !body) { toast('Please fill in subject and message.'); return; }
+  try {
+    await SB.insert('ss_messages', {
+      id: uid(), from_id: currentUser.id, from_name: currentUser.name,
+      to_user_id: toId, to_name: toName,
+      category: cat, subject, body, urgent, ts: ts()
+    });
+    document.getElementById('note-subject').value = '';
+    document.getElementById('note-body').value = '';
+    document.getElementById('note-urgent').checked = false;
+    toast('Message sent!');
+    await loadAppData();
+    renderNotesPage();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  CREW HOME
+// ══════════════════════════════════════════════
+function renderCrewHome() {
+  const evts = allRehearsals.filter(e => e.date >= today()).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+  const el = document.getElementById('crew-event-list');
+  if (el) {
+    if (!evts.length) { el.innerHTML = '<div class="empty-state">No upcoming rehearsals scheduled.</div>'; }
+    else {
+      el.innerHTML = evts.map(e => `
+        <div style="display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="background:var(--bg2);border-radius:8px;padding:8px 12px;text-align:center;min-width:52px;">
+            <div style="font-size:10px;color:var(--text2);">${new Date(e.date + 'T00:00:00').toLocaleDateString('en-AU', { month: 'short' })}</div>
+            <div style="font-size:18px;font-weight:700;line-height:1;">${new Date(e.date + 'T00:00:00').getDate()}</div>
+          </div>
+          <div>
+            <div style="font-weight:600;font-size:13px;">${e.name}</div>
+            <div style="font-size:11px;color:var(--text2);">${formatDate(e.date)}${e.time ? ' • ' + fmtTime(e.time) : ''}${e.location ? ' • ' + e.location : ''}</div>
+            ${e.dances && e.dances.length ? '<div style="font-size:11px;color:var(--text2);margin-top:2px;">💃 ' + e.dances.join(', ') + '</div>' : ''}
+          </div>
+        </div>`).join('');
+    }
+  }
+  const inbox = document.getElementById('crew-inbox');
+  if (inbox) {
+    const msgs = allMessages.filter(m => m.from_id !== currentUser.id && (m.to_user_id === currentUser.id || m.to_user_id === 'all')).slice(0, 5);
+    if (!msgs.length) { inbox.innerHTML = '<div class="empty-state">No messages yet.</div>'; }
+    else {
+      inbox.innerHTML = msgs.map(m => `
+        <div class="req-item"><div class="req-body">
+          <div class="req-top"><span class="req-name">${m.from_name}</span>${m.urgent ? '<span class="badge badge-red">Urgent</span>' : ''}<span class="req-time">${m.ts}</span></div>
+          <div class="req-text"><strong>${m.subject}</strong> — ${m.body}</div>
+        </div></div>`).join('');
+    }
+  }
+}
+
+// ══════════════════════════════════════════════
+//  DASHBOARD (manager)
+// ══════════════════════════════════════════════
+function renderDashboard() {
+  const performers = allUsers.filter(u => u.access === 'performer');
+  const todayAtt = allAttendance.filter(a => a.date === today());
+  const openReqs = allRequests.filter(r => r.status === 'pending').length;
+  const unread = allMessages.filter(m => m.to_user_id === 'all' || m.to_user_id === currentUser.id).length;
+  const nextReh = allRehearsals.filter(r => r.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
+  const sg = document.getElementById('stats-grid');
+  sg.innerHTML = [
+    { label: 'Total performers', val: performers.length, note: 'Registered' },
+    { label: 'Next rehearsal', val: nextReh ? formatDate(nextReh.date) : 'None', note: nextReh ? nextReh.name : 'No rehearsals posted' },
+    { label: 'Open requests', val: openReqs, note: 'Awaiting review' },
+    { label: 'Messages', val: unread, note: 'From performers' }
+  ].map(s => `<div class="stat-card"><div class="stat-label">${s.label}</div><div class="stat-val" style="font-size:${typeof s.val === 'string' && s.val.length > 5 ? '16px' : '24px'}">${s.val}</div><div class="stat-note">${s.note}</div></div>`).join('');
+
+  // Attendance grid
+  const attGrid = document.getElementById('mgr-att-grid');
+  if (!performers.length) { attGrid.innerHTML = '<div class="empty-state">No performers yet.</div>'; }
+  else {
+    attGrid.innerHTML = performers.map(p => {
+      const todayRec = todayAtt.find(a => a.user_id === p.id) || null;
+      const status = todayRec ? todayRec.status : 'none';
+      return `<div class="att-card ${status !== 'none' ? status : ''}" id="attc-${p.id}">
+        <div class="pname">${p.name}</div>
+        <div class="prole">${p.perfRole} · ${status !== 'none' ? status : 'not marked'}</div>
+        <div class="att-btns">
+          <button class="att-btn ${status === 'present' ? 'active-p' : ''}" onclick="mgrMarkAtt('${p.id}','present')">P</button>
+          <button class="att-btn ${status === 'absent' ? 'active-a' : ''}" onclick="mgrMarkAtt('${p.id}','absent')">A</button>
+          <button class="att-btn ${status === 'late' ? 'active-l' : ''}" onclick="mgrMarkAtt('${p.id}','late')">L</button>
+          <button class="att-btn ${status === 'excused' ? 'active-e' : ''}" onclick="mgrMarkAtt('${p.id}','excused')">E</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Requests
+  const rl = document.getElementById('mgr-req-list');
+  if (!allRequests.length) { rl.innerHTML = '<div class="empty-state">No requests yet.</div>'; }
+  else {
+    rl.innerHTML = allRequests.map(r => `
+      <div class="req-item">
+        <div class="avatar ${avatarColor(0)}" style="width:34px;height:34px;font-size:11px;flex-shrink:0;">${mkInitials(r.user_name)}</div>
+        <div class="req-body">
+          <div class="req-top"><span class="req-name">${r.user_name}</span><span class="badge badge-${reqStatusBadge(r.status)}">${r.status}</span><span class="badge badge-blue">${r.type}</span><span class="badge badge-${r.priority === 'high' ? 'red' : r.priority === 'medium' ? 'amber' : 'gray'}">${r.priority}</span></div>
+          <div class="req-text"><strong>${r.title}</strong> — ${r.details}</div>
+          ${r.response ? `<div style="margin-top:6px;font-size:12px;color:var(--green);">✓ ${r.response}</div>` : ''}
+          <div class="req-actions">
+            <button class="btn btn-sm btn-outline" onclick="openRespond('${r.id}')">Respond</button>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Messages
+  const ml = document.getElementById('mgr-msg-list');
+  if (!allMessages.length) { ml.innerHTML = '<div class="empty-state">No messages yet.</div>'; }
+  else {
+    ml.innerHTML = allMessages.map(m => `
+      <div class="req-item">
+        <div class="avatar ${avatarColor(0)}" style="width:34px;height:34px;font-size:11px;flex-shrink:0;">${mkInitials(m.from_name)}</div>
+        <div class="req-body">
+          <div class="req-top"><span class="req-name">${m.from_name}</span>${m.urgent ? '<span class="badge badge-red">Urgent</span>' : ''}<span class="req-time">${m.ts}</span></div>
+          <div class="req-text"><strong>${m.subject}</strong> — ${m.body}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+
+async function mgrMarkAtt(userId, status) {
+  const user = allUsers.find(u => u.id === userId);
+  if (!user) return;
+  const existing = allAttendance.find(a => a.user_id === userId && a.date === today());
+  try {
+    if (existing) {
+      await SB.update('ss_attendance', { status }, `id=eq.${existing.id}`);
+    } else {
+      await SB.insert('ss_attendance', {
+        id: uid(), user_id: userId, user_name: user.name,
+        user_role: user.perfRole, rehearsal_id: '', event: 'Today',
+        date: today(), status, note: '', ts: ts()
+      });
+    }
+    await loadAppData();
+    renderDashboard();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  RESPOND TO REQUEST
+// ══════════════════════════════════════════════
+function openRespond(reqId) {
+  respondingReqId = reqId;
+  const r = allRequests.find(x => x.id === reqId);
+  if (!r) return;
+  document.getElementById('respond-req-detail').innerHTML = `<strong>${r.user_name}</strong>: ${r.title}<br><span style="font-size:12px;color:var(--text2);">${r.details}</span>`;
+  document.getElementById('respond-status').value = r.status || 'pending';
+  document.getElementById('respond-note').value = r.response || '';
+  openModal('modal-respond');
+}
+
+async function saveResponse() {
+  if (!respondingReqId) return;
+  const status = document.getElementById('respond-status').value;
+  const response = document.getElementById('respond-note').value.trim();
+  try {
+    await SB.update('ss_requests', { status, response }, `id=eq.${respondingReqId}`);
+    closeModal('modal-respond');
+    toast('Response saved!');
+    await loadAppData();
+    renderDashboard();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  ROSTER
+// ══════════════════════════════════════════════
+function renderRoster() {
+  const search = (document.getElementById('roster-search') || {}).value || '';
+  const performers = allUsers.filter(u =>
+    (u.access === 'performer' || u.access === 'crew') &&
+    (!search || u.name.toLowerCase().includes(search.toLowerCase()))
+  );
+  const tbody = document.getElementById('roster-tbody');
+  if (!performers.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">No performers yet. Share the join code!</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = performers.map(p => {
+    const att = allAttendance.filter(a => a.user_id === p.id);
+    const reqs = allRequests.filter(r => r.user_id === p.id);
+    const rate = att.length ? Math.round(att.filter(a => a.status === 'present' || a.status === 'late').length / att.length * 100) : null;
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:9px;"><div class="avatar ${p.color}" style="width:28px;height:28px;font-size:10px;">${p.initials}</div>${p.name}</div></td>
+      <td style="font-size:12px;">${p.perfRole || '—'}</td>
+      <td style="font-size:12px;color:var(--text2);">${p.joined}</td>
+      <td style="font-size:12px;">${att.length} sessions${rate !== null ? ' · ' + rate + '%' : ''}</td>
+      <td style="font-size:12px;">${reqs.length}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  REHEARSAL MANAGER (manager)
+// ══════════════════════════════════════════════
+function renderMgrAvail() {
+  const dances = appConfig.dances || [];
+  const el = document.getElementById('reh-dances-checkboxes');
+  if (el) el.innerHTML = dances.map(d =>
+    `<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);border-radius:20px;background:var(--bg2);">
+      <input type="checkbox" value="${d}" style="accent-color:var(--purple);"> ${d}
+    </label>`).join('');
+}
+
+function renderMgrRehearsalList() {
+  const performers = allUsers.filter(u => u.access === 'performer');
+  const el = document.getElementById('mgr-rehearsal-list');
+  const sorted = [...allRehearsals].sort((a, b) => b.date.localeCompare(a.date));
+  if (!sorted.length) { el.innerHTML = '<div class="card"><div class="empty-state">No rehearsals posted yet.</div></div>'; return; }
+  el.innerHTML = sorted.map(r => {
+    const myRsvps = allRsvps.filter(v => v.rehearsal_id === r.id);
+    const yesCount = myRsvps.filter(v => v.status === 'yes').length;
+    const maybeCount = myRsvps.filter(v => v.status === 'maybe').length;
+    const noCount = myRsvps.filter(v => v.status === 'no').length;
+    const rsvpNames = myRsvps.map(v => `<span class="badge badge-${v.status === 'yes' ? 'green' : v.status === 'no' ? 'red' : 'amber'}" style="margin:2px;">${v.user_name}</span>`).join('');
+    return `<div class="card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${r.name}</div>
+          <div style="font-size:12px;color:var(--text2);display:flex;flex-wrap:wrap;gap:10px;">
+            <span>📅 ${formatDate(r.date)}</span>
+            ${r.time ? '<span>⏰ ' + fmtTime(r.time) + '</span>' : ''}
+            ${r.location ? '<span>📍 ' + r.location + '</span>' : ''}
+          </div>
+          ${r.dances && r.dances.length ? `<div style="margin-bottom:8px;margin-top:6px;">${r.dances.map(d => '<span class="badge badge-purple" style="margin-right:4px;">' + d + '</span>').join('')}</div>` : ''}
+          ${r.notes ? `<div style="font-size:12px;color:var(--text2);">📋 ${r.notes}</div>` : ''}
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;">RSVPs — <span style="color:var(--green);">✓ ${yesCount} yes</span> &nbsp;<span style="color:var(--amber);">~ ${maybeCount} maybe</span> &nbsp;<span style="color:var(--red);">✗ ${noCount} no</span> &nbsp;<span style="color:var(--text3);">${performers.length - myRsvps.length} no reply</span></div>
+            <div style="flex-wrap:wrap;">${rsvpNames}</div>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);flex-shrink:0;" onclick="deleteRehearsal('${r.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function postRehearsal() {
+  const name = document.getElementById('reh-name').value.trim();
+  const date = document.getElementById('reh-date').value;
+  const time = document.getElementById('reh-time').value;
+  const location = document.getElementById('reh-location').value.trim();
+  const notes = document.getElementById('reh-notes').value.trim();
+  if (!name || !date) { toast('Please enter a name and date.'); return; }
+  const dances = Array.from(document.querySelectorAll('#reh-dances-checkboxes input:checked')).map(c => c.value);
+  try {
+    await SB.insert('ss_rehearsals', {
+      id: uid(), name, date, time, location, dances, notes,
+      posted_by: currentUser.name, ts: ts()
+    });
+    document.getElementById('reh-name').value = '';
+    document.getElementById('reh-date').value = '';
+    document.getElementById('reh-time').value = '';
+    document.getElementById('reh-location').value = '';
+    document.getElementById('reh-notes').value = '';
+    document.querySelectorAll('#reh-dances-checkboxes input').forEach(c => c.checked = false);
+    toast('Rehearsal posted!');
+    await loadAppData();
+    renderMgrRehearsalList();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function deleteRehearsal(id) {
+  if (!confirm('Delete this rehearsal?')) return;
+  try {
+    await SB.delete('ss_rehearsals', `id=eq.${id}`);
+    toast('Rehearsal deleted.');
+    await loadAppData();
+    renderMgrRehearsalList();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  USER MANAGEMENT
+// ══════════════════════════════════════════════
+function renderUsers() {
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = allUsers.map(u => `<tr>
+    <td><div style="display:flex;align-items:center;gap:9px;"><div class="avatar ${u.color}" style="width:28px;height:28px;font-size:10px;">${u.initials}</div>${u.name}</div></td>
+    <td style="font-size:12px;color:var(--text2);">${u.email}</td>
+    <td style="font-size:12px;">${u.perfRole || '—'}</td>
+    <td><span class="badge badge-${u.access === 'admin' ? 'purple' : u.access === 'manager' ? 'blue' : u.access === 'crew' ? 'amber' : 'gray'}">${u.access === 'crew' ? '🔧 crew' : u.access}</span></td>
+    <td><div style="display:flex;gap:5px;">
+      ${u.id !== currentUser.id ? `<button class="btn btn-sm btn-outline" onclick="changeAccess('${u.id}')">Change role</button><button class="btn btn-sm btn-red" onclick="removeUser('${u.id}')">Remove</button>` : '<span style="font-size:12px;color:var(--text3);">You</span>'}
+    </div></td>
+  </tr>`).join('');
+}
+
+async function addUser() {
+  const name = document.getElementById('add-name').value.trim();
+  const email = document.getElementById('add-email').value.trim().toLowerCase();
+  const pass = document.getElementById('add-pass').value.trim();
+  const perf_role = document.getElementById('add-perf-role').value;
+  const access = document.getElementById('add-access').value;
+  if (!name || !email || !pass) { toast('Fill in all fields.'); return; }
+  try {
+    const existing = await SB.getOne('ss_users', `email=eq.${encodeURIComponent(email)}&select=id`);
+    if (existing) { toast('Email already in use.'); return; }
+    const idx = allUsers.length;
+    await SB.insert('ss_users', {
+      id: uid(), name, email, pass: hashPass(pass),
+      access, perf_role, dance_groups: [],
+      initials: mkInitials(name), color: avatarColor(idx), joined: today()
+    });
+    closeModal('modal-adduser');
+    document.getElementById('add-name').value = '';
+    document.getElementById('add-email').value = '';
+    document.getElementById('add-pass').value = '';
+    toast(name + ' added!');
+    await loadAppData();
+    renderUsers();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function removeUser(id) {
+  if (!confirm('Remove this user? Their submissions will remain.')) return;
+  try {
+    await SB.delete('ss_users', `id=eq.${id}`);
+    await loadAppData();
+    renderUsers();
+    toast('User removed.');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function changeAccess(id) {
+  const u = allUsers.find(u => u.id === id);
+  if (!u) return;
+  const opts = ['performer', 'crew', 'manager', 'admin'];
+  const cur = opts.indexOf(u.access);
+  const newAccess = opts[(cur + 1) % opts.length];
+  try {
+    await SB.update('ss_users', { access: newAccess }, `id=eq.${id}`);
+    await loadAppData();
+    renderUsers();
+    buildSidebar();
+    toast(u.name + ' is now ' + newAccess);
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+function showJoinCode() {
+  alert(`Performer join code: ${appConfig.join_code}\nCrew (backstage) join code: ${appConfig.crew_join_code}\nDirector join code: ${appConfig.dir_join_code}\n\nShare performer code with cast, crew code with backstage staff.`);
+}
+
+async function sendBroadcast() {
+  const to = document.getElementById('bc-to').value;
+  const subject = document.getElementById('bc-subject').value.trim();
+  const body = document.getElementById('bc-body').value.trim();
+  if (!subject || !body) { toast('Fill in subject and message.'); return; }
+  try {
+    await SB.insert('ss_messages', {
+      id: uid(), from_id: currentUser.id, from_name: currentUser.name,
+      to_user_id: 'all', to_name: to, category: 'Broadcast',
+      subject, body, urgent: false, ts: ts()
+    });
+    closeModal('modal-broadcast');
+    document.getElementById('bc-subject').value = '';
+    document.getElementById('bc-body').value = '';
+    toast('Broadcast sent to all performers!');
+    await loadAppData();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════
+function renderConfig() {
+  const cfg = appConfig;
+  const el = (id) => document.getElementById(id);
+  if (el('cfg-company')) el('cfg-company').value = cfg.company || '';
+  if (el('cfg-production')) el('cfg-production').value = cfg.production || '';
+  if (el('cfg-joincode')) el('cfg-joincode').value = cfg.join_code || '';
+  if (el('cfg-crewcode')) el('cfg-crewcode').value = cfg.crew_join_code || '';
+  if (el('cfg-dircode')) el('cfg-dircode').value = cfg.dir_join_code || '';
+  if (el('cfg-notify-email')) el('cfg-notify-email').value = cfg.notify_email || '';
+  renderModuleToggles();
+  renderReqTypesList();
+  renderDancesList();
+  renderDanceGroupsList();
+}
+
+function renderModuleToggles() {
+  const mods = appConfig.modules || {};
+  const mt = document.getElementById('module-toggles');
+  if (!mt) return;
+  const modDefs = [
+    { k: 'attendance', l: 'Attendance tracking', d: 'Performers mark present / absent / late / excused' },
+    { k: 'requests', l: 'Performance requests', d: 'Song, role, costume, choreography requests' },
+    { k: 'availability', l: 'Availability scheduling', d: 'Rehearsal RSVP for performers' },
+    { k: 'notes', l: 'Notes & messages', d: 'Direct messages to managers' }
+  ];
+  mt.innerHTML = modDefs.map(m => `
+    <div class="toggle-row">
+      <div class="toggle-info"><div class="tl">${m.l}</div><div class="td">${m.d}</div></div>
+      <button class="toggle ${mods[m.k] ? 'on' : ''}" onclick="toggleModule('${m.k}',this)"></button>
+    </div>`).join('');
+}
+
+async function toggleModule(k, btn) {
+  btn.classList.toggle('on');
+  const newVal = btn.classList.contains('on');
+  const newMods = { ...appConfig.modules, [k]: newVal };
+  try {
+    await SB.update('ss_config', { modules: newMods }, 'id=eq.main');
+    appConfig.modules = newMods;
+    buildSidebar();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+function renderReqTypesList() {
+  const el = document.getElementById('req-types-list');
+  if (!el) return;
+  el.innerHTML = (appConfig.req_types || []).map((t, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:13px;">${t}</span>
+      <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="removeReqType(${i})">✕</button>
+    </div>`).join('');
+}
+
+async function addReqType() {
+  const input = document.getElementById('new-req-type');
+  const val = input.value.trim();
+  if (!val) return;
+  const newTypes = [...(appConfig.req_types || []), val];
+  try {
+    await SB.update('ss_config', { req_types: newTypes }, 'id=eq.main');
+    appConfig.req_types = newTypes;
+    input.value = '';
+    renderReqTypesList();
+    toast('Request type added!');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function removeReqType(i) {
+  const newTypes = [...(appConfig.req_types || [])];
+  newTypes.splice(i, 1);
+  try {
+    await SB.update('ss_config', { req_types: newTypes }, 'id=eq.main');
+    appConfig.req_types = newTypes;
+    renderReqTypesList();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function saveConfig() {
+  const get = id => document.getElementById(id)?.value.trim() || '';
+  const updates = {
+    company: get('cfg-company') || appConfig.company,
+    production: get('cfg-production') || appConfig.production,
+    join_code: get('cfg-joincode').toUpperCase() || appConfig.join_code,
+    crew_join_code: get('cfg-crewcode').toUpperCase() || appConfig.crew_join_code,
+    dir_join_code: get('cfg-dircode').toUpperCase() || appConfig.dir_join_code,
+    notify_email: get('cfg-notify-email')
+  };
+  try {
+    await SB.update('ss_config', updates, 'id=eq.main');
+    Object.assign(appConfig, updates);
+    document.getElementById('topbar-prod').textContent = appConfig.production;
+    buildSidebar();
+    toast('Settings saved!');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+function renderDancesList() {
+  const dances = appConfig.dances || [];
+  const el = document.getElementById('dances-list');
+  if (!el) return;
+  if (!dances.length) { el.innerHTML = '<div class="empty-state" style="padding:16px 0 0;">No dances added yet.</div>'; return; }
+  el.innerHTML = dances.map((d, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+      <span class="badge badge-purple" style="font-size:12px;padding:4px 10px;">${d}</span>
+      <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="removeDance(${i})">✕</button>
+    </div>`).join('');
+}
+
+async function addDance() {
+  const input = document.getElementById('new-dance-name');
+  const val = input.value.trim();
+  if (!val) { toast('Enter a dance name.'); return; }
+  const newDances = [...(appConfig.dances || [])];
+  if (newDances.includes(val)) { toast('Already in the list.'); return; }
+  newDances.push(val);
+  try {
+    await SB.update('ss_config', { dances: newDances }, 'id=eq.main');
+    appConfig.dances = newDances;
+    input.value = '';
+    renderDancesList();
+    toast('Dance added!');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function removeDance(i) {
+  const newDances = [...(appConfig.dances || [])];
+  newDances.splice(i, 1);
+  try {
+    await SB.update('ss_config', { dances: newDances }, 'id=eq.main');
+    appConfig.dances = newDances;
+    renderDancesList();
+    toast('Dance removed.');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+function renderDanceGroupsList() {
+  const groups = appConfig.dance_groups || [];
+  const el = document.getElementById('dance-groups-list');
+  if (!el) return;
+  if (!groups.length) { el.innerHTML = '<div class="empty-state" style="padding:10px 0;">No groups added yet.</div>'; return; }
+  el.innerHTML = groups.map((g, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);">
+      <span class="badge badge-purple" style="font-size:12px;padding:4px 10px;">${g}</span>
+      <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="removeDanceGroup(${i})">✕</button>
+    </div>`).join('');
+}
+
+async function addDanceGroup() {
+  const input = document.getElementById('new-group-name');
+  const val = input.value.trim();
+  if (!val) { toast('Enter a group name.'); return; }
+  const newGroups = [...(appConfig.dance_groups || [])];
+  if (newGroups.includes(val)) { toast('That group already exists.'); return; }
+  newGroups.push(val);
+  try {
+    await SB.update('ss_config', { dance_groups: newGroups }, 'id=eq.main');
+    appConfig.dance_groups = newGroups;
+    input.value = '';
+    renderDanceGroupsList();
+    toast('Group added!');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function removeDanceGroup(i) {
+  const newGroups = [...(appConfig.dance_groups || [])];
+  newGroups.splice(i, 1);
+  try {
+    await SB.update('ss_config', { dance_groups: newGroups }, 'id=eq.main');
+    appConfig.dance_groups = newGroups;
+    renderDanceGroupsList();
+    toast('Group removed.');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function clearAllData() {
+  try {
+    await Promise.all([
+      SB.delete('ss_attendance', 'id=neq.null'),
+      SB.delete('ss_requests', 'id=neq.null'),
+      SB.delete('ss_messages', 'id=neq.null'),
+      SB.delete('ss_rsvps', 'id=neq.null')
+    ]);
+    toast('All submission data cleared.');
+    await loadAppData();
+    renderDashboard();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  RESOURCES
+// ══════════════════════════════════════════════
+function renderResources() {
+  const isDir = currentUser.access !== 'performer' && currentUser.access !== 'crew';
+  const uploadCard = document.getElementById('resources-upload-card');
+  if (uploadCard) uploadCard.style.display = isDir ? 'block' : 'none';
+  const el = document.getElementById('resources-list');
+  if (!el) return;
+  if (!allResources.length) { el.innerHTML = '<div class="card"><div class="empty-state">No resources have been shared yet.</div></div>'; return; }
+  const cats = [...new Set(allResources.map(r => r.cat))];
+  let html = '';
+  cats.forEach(cat => {
+    const items = allResources.filter(r => r.cat === cat);
+    html += `<div class="card"><h3>📁 ${cat}</h3>`;
+    html += items.map(r => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:13px;">
+            <a href="${r.url}" target="_blank" style="color:var(--blue);text-decoration:none;">${r.title} ↗</a>
+          </div>
+          ${r.description ? `<div style="font-size:12px;color:var(--text2);margin-top:2px;">${r.description}</div>` : ''}
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;">Added by ${r.added_by} · ${r.ts}</div>
+        </div>
+        ${isDir ? `<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);flex-shrink:0;" onclick="removeResource('${r.id}')">✕</button>` : ''}
+      </div>`).join('');
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
+async function addResource() {
+  const title = document.getElementById('res-title').value.trim();
+  const url = document.getElementById('res-url').value.trim();
+  const cat = document.getElementById('res-cat').value;
+  const description = document.getElementById('res-desc').value.trim();
+  if (!title || !url) { toast('Please enter a title and URL.'); return; }
+  try {
+    await SB.insert('ss_resources', {
+      id: uid(), title, url, cat, description,
+      added_by: currentUser.name, ts: ts()
+    });
+    document.getElementById('res-title').value = '';
+    document.getElementById('res-url').value = '';
+    document.getElementById('res-desc').value = '';
+    toast('Resource added!');
+    await loadAppData();
+    renderResources();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function removeResource(id) {
+  if (!confirm('Remove this resource?')) return;
+  try {
+    await SB.delete('ss_resources', `id=eq.${id}`);
+    await loadAppData();
+    renderResources();
+    toast('Resource removed.');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  PROFILES
+// ══════════════════════════════════════════════
+function renderProfiles() {
+  const search = (document.getElementById('profiles-search') || {}).value || '';
+  const groupFilter = (document.getElementById('profiles-filter-group') || {}).value || '';
+  const gf = document.getElementById('profiles-filter-group');
+  if (gf) {
+    const groups = appConfig.dance_groups || [];
+    const cur = gf.value;
+    gf.innerHTML = '<option value="">All groups</option>' + groups.map(g => `<option value="${g}" ${cur === g ? 'selected' : ''}>${g}</option>`).join('');
+  }
+  const performers = allUsers.filter(u => {
+    if (u.access !== 'performer' && u.access !== 'crew') return false;
+    if (search && !u.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (groupFilter && !(u.danceGroups || []).includes(groupFilter)) return false;
+    return true;
+  });
+  const grid = document.getElementById('profiles-grid');
+  if (!grid) return;
+  if (!performers.length) { grid.innerHTML = '<div class="card" style="grid-column:1/-1;"><div class="empty-state">No performers found.</div></div>'; return; }
+  grid.innerHTML = performers.map(p => {
+    const myAtt = allAttendance.filter(a => a.user_id === p.id);
+    const myReqs = allRequests.filter(r => r.user_id === p.id);
+    const attRate = myAtt.length ? Math.round(myAtt.filter(a => a.status === 'present' || a.status === 'late').length / myAtt.length * 100) : null;
+    const groups = p.danceGroups || [];
+    return `<div class="card" style="cursor:pointer;" onclick="openProfileModal('${p.id}')">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <div class="avatar ${p.color}" style="width:42px;height:42px;font-size:15px;flex-shrink:0;">${p.initials}</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;">${p.name}</div>
+          <div style="font-size:11px;color:var(--text2);">${p.perfRole || 'Performer'}</div>
+        </div>
+      </div>
+      ${groups.length ? `<div style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:4px;">${groups.map(g => `<span class="badge badge-purple">${g}</span>`).join('')}</div>` : '<div style="margin-bottom:10px;font-size:11px;color:var(--text3);">No groups assigned</div>'}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:var(--text2);">
+        <div>📅 ${myAtt.length} sessions</div>
+        <div>📋 ${myReqs.length} requests</div>
+        ${attRate !== null ? `<div>✅ ${attRate}% attendance</div>` : ''}
+        <div style="font-size:10px;">Joined ${p.joined}</div>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--blue);">Click to view & edit →</div>
+    </div>`;
+  }).join('');
+}
+
+function openProfileModal(userId) {
+  const p = allUsers.find(u => u.id === userId);
+  if (!p) return;
+  editingProfileId = userId;
+  document.getElementById('profile-modal-title').textContent = p.name + "'s Profile";
+  const myAtt = allAttendance.filter(a => a.user_id === p.id);
+  const myReqs = allRequests.filter(r => r.user_id === p.id);
+  const groups = appConfig.dance_groups || [];
+  const userGroups = p.danceGroups || [];
+  document.getElementById('profile-modal-body').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+      <div class="avatar ${p.color}" style="width:50px;height:50px;font-size:18px;flex-shrink:0;">${p.initials}</div>
+      <div>
+        <div style="font-weight:700;font-size:16px;">${p.name}</div>
+        <div style="font-size:12px;color:var(--text2);">${p.email}</div>
+        <span class="badge badge-${p.access === 'crew' ? 'amber' : 'gray'}" style="margin-top:4px;">${p.access}</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Performance role</label>
+      <input type="text" id="profile-edit-role" value="${p.perfRole || ''}" placeholder="e.g. Lead, Ensemble…">
+    </div>
+    <div class="field">
+      <label>Dance groups</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;" id="profile-groups-checkboxes">
+        ${groups.length ? groups.map(g => `<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);border-radius:20px;background:${userGroups.includes(g) ? 'var(--purple-bg)' : 'var(--bg2)'};"><input type="checkbox" value="${g}" ${userGroups.includes(g) ? 'checked' : ''} style="accent-color:var(--purple);" onchange="this.closest('label').style.background=this.checked?'var(--purple-bg)':'var(--bg2)'"> ${g}</label>`).join('') : '<span style="font-size:12px;color:var(--text3);">No groups defined — add them in Configure.</span>'}
+      </div>
+    </div>
+    <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div style="background:var(--bg2);border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:22px;font-weight:700;">${myAtt.length}</div>
+        <div style="font-size:11px;color:var(--text2);">Attendance records</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:22px;font-weight:700;">${myReqs.length}</div>
+        <div style="font-size:11px;color:var(--text2);">Requests submitted</div>
+      </div>
+    </div>
+    ${myAtt.length ? `<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">Recent attendance</div>
+    ${myAtt.slice(0, 4).map(a => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);"><span>${a.event}</span><span class="badge badge-${attBadge(a.status)}">${a.status}</span></div>`).join('')}` : ''}`;
+  openModal('modal-profile');
+}
+
+async function saveProfile() {
+  if (!editingProfileId) return;
+  const role = document.getElementById('profile-edit-role').value.trim();
+  const selectedGroups = Array.from(document.querySelectorAll('#profile-groups-checkboxes input:checked')).map(c => c.value);
+  try {
+    await SB.update('ss_users', { perf_role: role, dance_groups: selectedGroups }, `id=eq.${editingProfileId}`);
+    closeModal('modal-profile');
+    await loadAppData();
+    renderProfiles();
+    toast('Profile updated!');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+//  MODAL / TOAST HELPERS
+// ══════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+
+function copyCode(id) {
+  const val = document.getElementById(id).value;
+  navigator.clipboard.writeText(val).then(() => toast('Code copied!')).catch(() => toast('Code: ' + val));
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2800);
+}
+
+// ══════════════════════════════════════════════
+//  START
+// ══════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
